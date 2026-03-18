@@ -35,10 +35,10 @@
     "healthCheckPath": "/__mpp/health",
     "bindings": {
       "JWT_SECRET": {
-        "description": "Secret key for signing JWT authentication tokens. Generate with `node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"`"
+        "description": "Secret key for signing JWT authentication tokens. Generate with `openssl rand -hex 32`"
       },
       "MPP_SECRET_KEY": {
-        "description": "Secret key for signing MPP payment challenges. Generate with `node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"`"
+        "description": "Secret key for signing MPP payment challenges. Generate with `openssl rand -hex 32`"
       }
     }
   },

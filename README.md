@@ -14,7 +14,47 @@ This proxy sits in front of any origin and:
 4. Returns MPP-standard `WWW-Authenticate: Payment` and `Payment-Receipt` headers.
 5. Issues a 1-hour JWT cookie after a successful payment to avoid repaying on every request.
 
-The repo ships with demo-safe defaults: Tempo testnet, the PathUSD test token at `0x20c0000000000000000000000000000000000000`, and the dead address `0x000000000000000000000000000000000000dEaD` as `PAY_TO` until you replace it.
+The repo ships with production defaults: Tempo production, USDC at `0x20c000000000000000000000b9537d11c60e8b50`, and the dead address `0x000000000000000000000000000000000000dEaD` as `PAY_TO` until you replace it.
+
+## Try It Out
+
+The **Deploy to Cloudflare** button above creates a Worker for you. Once deployed, you can test the payment flow with an AI agent or the `tempo` CLI.
+
+### 1. Verify the deploy
+
+```bash
+curl https://YOUR-WORKER.workers.dev/__mpp/health
+```
+
+### 2. Hit the protected route
+
+```bash
+curl -i https://YOUR-WORKER.workers.dev/__mpp/protected
+```
+
+You should get `402 Payment Required` with a `WWW-Authenticate: Payment` header. That confirms the paywall is active.
+
+### 3. Log in to Tempo
+
+```bash
+tempo wallet login
+```
+
+### 4. Make a paid request
+
+Tell your agent to run:
+
+```bash
+tempo request -X GET https://YOUR-WORKER.workers.dev/__mpp/protected
+```
+
+Or use `mppx` directly:
+
+```bash
+npx mppx https://YOUR-WORKER.workers.dev/__mpp/protected
+```
+
+The client handles the `402` automatically — it pays and returns the protected content with a `Payment-Receipt` header.
 
 ## Built-In Endpoints
 
@@ -22,7 +62,7 @@ The repo ships with demo-safe defaults: Tempo testnet, the PathUSD test token at
 - `/__mpp/config` - sanitized runtime config
 - `/__mpp/protected` - built-in paid route for testing
 
-## Quick Start
+## Quick Start (Local Development)
 
 ```bash
 npm install
@@ -33,20 +73,22 @@ npm run dev
 
 Then hit `http://localhost:8787/__mpp/health` or `http://localhost:8787/__mpp/protected`.
 
+For local testnet development, set `TEMPO_TESTNET` to `true` and `PAYMENT_CURRENCY` to `0x20c0000000000000000000000000000000000000` in `wrangler.jsonc`. See [TUTORIAL.md](TUTORIAL.md) for a full local walkthrough.
+
 If you want the optional landing page at `/`, uncomment the `assets` block in `wrangler.jsonc`.
 
 ## Configuration
 
-The proxy is configured in `wrangler.jsonc`. The checked-in defaults keep routes disabled and use testnet-safe payment values until you swap in your own domain, wallet, and token.
+The proxy is configured in `wrangler.jsonc`. The checked-in defaults keep routes disabled and use production-safe payment values until you swap in your own domain, wallet, and token.
 
 ### Required vars
 
-| Variable             | Description                       |
-| -------------------- | --------------------------------- |
-| `PAY_TO`             | Recipient wallet address          |
-| `PAYMENT_CURRENCY`   | Token address clients pay with    |
-| `TEMPO_TESTNET`      | `true` for Tempo testnet defaults |
-| `PROTECTED_PATTERNS` | Paid paths and their amounts      |
+| Variable             | Description                                |
+| -------------------- | ------------------------------------------ |
+| `PAY_TO`             | Recipient wallet address                   |
+| `PAYMENT_CURRENCY`   | Token address clients pay with             |
+| `TEMPO_TESTNET`      | `false` for production, `true` for testnet |
+| `PROTECTED_PATTERNS` | Paid paths and their amounts               |
 
 ### Required secrets
 

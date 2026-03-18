@@ -165,13 +165,13 @@ In the Tempo wallet UI:
 3. choose the same token the demo is charging in
 4. send a small amount
 
-This repo currently uses this token by default in `wrangler.jsonc`:
+When running locally, update `PAYMENT_CURRENCY` in `wrangler.jsonc` to use the local testnet token:
 
 ```text
 0x20c0000000000000000000000000000000000000
 ```
 
-That is the default Tempo testnet PathUSD token used by the demo.
+That is the default local Tempo testnet token used by the demo.
 
 You do not need to send much. The built-in test route charges only `0.01`.
 

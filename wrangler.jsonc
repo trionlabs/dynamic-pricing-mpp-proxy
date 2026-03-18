@@ -58,14 +58,14 @@
     // `true`: uses Tempo testnet defaults.
     // `false`: use production Tempo settings.
     //
-    "TEMPO_TESTNET": true,
+    "TEMPO_TESTNET": false,
     // =====================================================================
     // PAYMENT_CURRENCY - Token address clients should pay in (REQUIRED)
     // =====================================================================
-    // Default PathUSD token for Tempo testnet demos.
-    // Replace this with your production token address before mainnet deploys.
+    // Default USDC token on Tempo production.
+    // For local testnet development, use 0x20c0000000000000000000000000000000000000.
     //
-    "PAYMENT_CURRENCY": "0x20c0000000000000000000000000000000000000",
+    "PAYMENT_CURRENCY": "0x20c000000000000000000000b9537d11c60e8b50",
     // =====================================================================
     // PROTECTED_PATTERNS - Routes requiring payment (REQUIRED)
     // =====================================================================
@@ -136,7 +136,7 @@
     // =====================================================================
     // MPP_SECRET_KEY is configured as a Wrangler secret, not a var.
     // Generate one with:
-    //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+    //   openssl rand -hex 32
     // then run:
     //   npx wrangler secret put MPP_SECRET_KEY
     //
