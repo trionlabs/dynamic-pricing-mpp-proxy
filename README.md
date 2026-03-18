@@ -14,7 +14,7 @@ This proxy sits in front of any origin and:
 4. Returns MPP-standard `WWW-Authenticate: Payment` and `Payment-Receipt` headers.
 5. Issues a 1-hour JWT cookie after a successful payment to avoid repaying on every request.
 
-The repo ships with demo-safe defaults: Tempo testnet, the PathUSD test token at `0x20c0000000000000000000000000000000000000`, and the dead address `0x000000000000000000000000000000000000dEaD` as `PAY_TO` until you replace it.
+The repo ships with demo-safe defaults: Tempo testnet, the PathUSD test token at `0x20c000000000000000000000b9537d11c60e8b50`, and the dead address `0x000000000000000000000000000000000000dEaD` as `PAY_TO` until you replace it.
 
 ## Built-In Endpoints
 

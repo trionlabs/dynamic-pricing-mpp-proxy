@@ -145,7 +145,7 @@ Then ask:
 Recommended default for demos:
 
 ```text
-0x20c0000000000000000000000000000000000000
+0x20c000000000000000000000b9537d11c60e8b50
 ```
 
 That is the default PathUSD address used by this template for Tempo testnet demos.
@@ -199,7 +199,7 @@ Basic example:
   "vars": {
     "PAY_TO": "0x000000000000000000000000000000000000dEaD",
     "TEMPO_TESTNET": true,
-    "PAYMENT_CURRENCY": "0x20c0000000000000000000000000000000000000",
+    "PAYMENT_CURRENCY": "0x20c000000000000000000000b9537d11c60e8b50",
     "PROTECTED_PATTERNS": [
       {
         "pattern": "/premium/*",
@@ -221,7 +221,7 @@ With Bot Management Filtering:
   "vars": {
     "PAY_TO": "0x000000000000000000000000000000000000dEaD",
     "TEMPO_TESTNET": true,
-    "PAYMENT_CURRENCY": "0x20c0000000000000000000000000000000000000",
+    "PAYMENT_CURRENCY": "0x20c000000000000000000000b9537d11c60e8b50",
     "PROTECTED_PATTERNS": [
       {
         "pattern": "/content/*",
@@ -250,13 +250,13 @@ This repo requires two secrets.
 Set the JWT secret:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" | npx wrangler secret put JWT_SECRET
+openssl rand -hex 32 | npx wrangler secret put JWT_SECRET
 ```
 
 Set the MPP challenge secret:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" | npx wrangler secret put MPP_SECRET_KEY
+openssl rand -hex 32 | npx wrangler secret put MPP_SECRET_KEY
 ```
 
 If Tempo RPC access requires authentication, also set an authenticated RPC URL so server-side verification and transaction broadcast do not fall back to `https://rpc.tempo.xyz/`:
