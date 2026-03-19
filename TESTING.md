@@ -1,74 +1,87 @@
 # Testing Guide
 
-This project supports both standards-level MPP testing and the JWT cookie shortcut used by the proxy.
-
 ## Prerequisites
 
-1. A Tempo test wallet private key
-2. Test tokens in that wallet
-3. The Worker running locally:
+1. The Worker running locally: `npm run dev`
+2. A Tempo test wallet private key (for payment tests)
+3. Test tokens in that wallet (for payment tests)
+
+## 1. Pricing engine (no wallet needed)
 
 ```bash
-npm run dev
+# Health check
+curl http://localhost:8787/__mpp/health
+
+# Current prices
+curl http://localhost:8787/__mpp/api/prices
+
+# Full status (demand, tier, config)
+curl http://localhost:8787/__mpp/api/status
+
+# Trigger 402 on AI endpoint
+curl -i -X POST http://localhost:8787/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"hello"}]}'
+
+# Surge test — flood requests and watch price climb
+for i in {1..50}; do
+  curl -s -o /dev/null -X POST http://localhost:8787/api/chat \
+    -H "Content-Type: application/json" \
+    -d '{"messages":[{"role":"user","content":"x"}]}'
+done
+
+# Check surged prices
+curl http://localhost:8787/__mpp/api/prices
+# Price should be above $0.001 now
+
+# Wait 60s, prices decay back to base
+sleep 65
+curl http://localhost:8787/__mpp/api/prices
 ```
 
-## Automated test client
+## 2. Automated payment test (wallet required)
 
 ```bash
 PRIVATE_KEY=0x... npm run test:client
 ```
 
-The script will:
+The script:
+1. Shows current dynamic prices for all routes
+2. Requests `/api/chat` and confirms `402 Payment Required`
+3. Uses `mppx/client` with Tempo to complete payment at the surge price
+4. Verifies `Payment-Receipt` is returned
+5. Shows the AI response (if Workers AI is available)
+6. Reuses the JWT `auth_token` cookie without paying again
 
-1. Request `/__mpp/protected` and confirm a `402 Payment Required`
-2. Inspect the `WWW-Authenticate: Payment` challenge
-3. Use `mppx` to complete the payment automatically
-4. Verify a `Payment-Receipt` is returned
-5. Reuse the issued `auth_token` cookie without paying again
+### Environment variables
 
-## Manual checks
+| Variable | Required | Default |
+|----------|----------|---------|
+| `PRIVATE_KEY` | Yes | — |
+| `SERVER_URL` | No | `http://localhost:8787` |
+| `TARGET_PATH` | No | `/api/chat` |
 
-### Public endpoint
-
-```bash
-curl http://localhost:8787/__mpp/health
-```
-
-### Paid endpoint without payment
-
-```bash
-curl -i http://localhost:8787/__mpp/protected
-```
-
-You should see:
-
-- `402 Payment Required`
-- `WWW-Authenticate: Payment ...`
-- `Cache-Control: no-store`
-
-### Pay with the MPP CLI
+### Against deployed Worker
 
 ```bash
-npx mppx account create
-npx mppx http://localhost:8787/__mpp/protected
+PRIVATE_KEY=0x... SERVER_URL=https://mpp-dynamic-pricing.0x471.workers.dev npm run test:client
 ```
 
-### Check the cookie path
-
-After a successful paid request, copy the `auth_token` cookie and retry:
+## 3. Manual payment with Tempo CLI
 
 ```bash
-curl http://localhost:8787/__mpp/protected \
-  -H "Cookie: auth_token=<token>"
+curl -fsSL tempo.xyz/install | bash
+tempo wallet login
+
+# Pay for AI chat completion
+tempo request -X POST https://mpp-dynamic-pricing.0x471.workers.dev/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"What is the meaning of life?"}]}'
 ```
-
-## Environment variables for `test-client.ts`
-
-- `PRIVATE_KEY` - required Tempo wallet private key
-- `SERVER_URL` - optional, defaults to `http://localhost:8787`
 
 ## Notes
 
-- The built-in script uses `mppx/client` with the Tempo method.
-- The proxy still uses cookies after payment so repeat browser requests stay cheap.
-- Never test with a wallet that holds real funds.
+- `TEMPO_TESTNET` is `true` in the default config — use testnet tokens
+- Prices reset to base after 60s of no traffic (sliding window clears)
+- Workers AI requires remote mode — it won't produce completions in `--local` mode
+- Never test with a wallet that holds real funds

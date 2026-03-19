@@ -1,217 +1,165 @@
-# MPP Payment-Gated Proxy
+# MPP Dynamic Pricing Proxy
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/mpp-proxy)
+**[Live](https://mpp-dynamic-pricing.0x471.workers.dev)** | Fork of [cloudflare/mpp-proxy](https://github.com/cloudflare/mpp-proxy)
 
-A Cloudflare Worker that acts as a transparent reverse proxy with payment-gated access using the [Machine Payments Protocol](https://mpp.dev/overview) and stateless cookie-based authentication.
+A Cloudflare Worker that gates AI model inference behind MPP payments with real-time demand-based surge pricing. Built for the [Tempo Hackathon](https://hackathon.tempo.xyz/).
 
-## Overview
+## What this fork adds
 
-This proxy sits in front of any origin and:
+The upstream [mpp-proxy](https://github.com/cloudflare/mpp-proxy) is a generic payment-gated reverse proxy with static prices. This fork adds:
 
-1. Proxies unprotected traffic straight through.
-2. Requires MPP payment on matching protected paths.
-3. Verifies `Authorization: Payment` credentials with the `mppx` SDK.
-4. Returns MPP-standard `WWW-Authenticate: Payment` and `Payment-Receipt` headers.
-5. Issues a 1-hour JWT cookie after a successful payment to avoid repaying on every request.
+- **Dynamic surge pricing engine** — A Durable Object tracks demand per route with a 60-second sliding window, 5-tier piecewise pricing curve, and EMA smoothing. Prices rise automatically under load.
+- **Workers AI endpoints** — `/api/chat` and `/api/embeddings` serve LLM inference and text embeddings directly via the Workers AI binding (Llama, Mistral, BGE). No external API keys needed.
+- **Pricing API** — `/__mpp/api/prices`, `/__mpp/api/status`, and WebSocket streaming for live price monitoring.
+- **Simulator dashboard** — The landing page at `/` is a Svelte visualization with traffic scenarios, real-time charts, and revenue analysis.
 
-The repo ships with production defaults: Tempo production, USDC at `0x20c000000000000000000000b9537d11c60e8b50`, and the dead address `0x000000000000000000000000000000000000dEaD` as `PAY_TO`. Update with your wallet address if you want payments to go to that wallet.
+## Endpoints
 
-## Try It Out
+| Endpoint | Auth | Description |
+|----------|------|-------------|
+| `POST /api/chat` | MPP (402) | AI chat completion — dynamic surge pricing |
+| `POST /api/embeddings` | MPP (402) | Text embeddings — separate pricing tier |
+| `GET /__mpp/api/prices` | Public | Current prices for all protected routes |
+| `GET /__mpp/api/status` | Public | Demand, tier, config per route |
+| `GET /__mpp/api/ws/:pattern` | Public | WebSocket live pricing stream |
+| `GET /__mpp/health` | Public | Health check |
+| `GET /__mpp/config` | Public | Runtime config |
+| `GET /` | Public | Simulator dashboard |
 
-The **Deploy to Cloudflare** button above creates a Worker for you. Once deployed, you can test the payment flow with an AI agent or the `tempo` CLI.
-
-### 1. Verify the deploy
-
-```bash
-curl https://YOUR-WORKER.workers.dev/__mpp/health
-```
-
-### 2. Hit the protected route
-
-```bash
-curl -i https://YOUR-WORKER.workers.dev/__mpp/protected
-```
-
-You should get `402 Payment Required` with a `WWW-Authenticate: Payment` header. That confirms the paywall is active.
-
-### 3. Install the Tempo CLI and log in
-
-```bash
-curl -fsSL tempo.xyz/install | bash
-tempo wallet login
-```
-
-### 4. Make a paid request
-
-Tell your agent to run:
-
-```bash
-tempo request -X GET https://YOUR-WORKER.workers.dev/__mpp/protected
-```
-
-The client handles the `402` automatically — it pays and returns the protected content with a `Payment-Receipt` header.
-
-## Built-In Endpoints
-
-- `/__mpp/health` - public health check
-- `/__mpp/config` - sanitized runtime config
-- `/__mpp/protected` - built-in paid route for testing
-
-## Quick Start (Local Development)
+## Quick start
 
 ```bash
 npm install
+
+# Local secrets
 echo "JWT_SECRET=$(openssl rand -hex 32)" > .dev.vars
 echo "MPP_SECRET_KEY=$(openssl rand -hex 32)" >> .dev.vars
+
+# Start dev server (DOs work locally via Miniflare)
 npm run dev
 ```
 
-Then hit `http://localhost:8787/__mpp/health` or `http://localhost:8787/__mpp/protected`.
+### Test it
 
-For local testnet development, set `TEMPO_TESTNET` to `true` and `PAYMENT_CURRENCY` to `0x20c0000000000000000000000000000000000000` in `wrangler.jsonc`. See [TUTORIAL.md](TUTORIAL.md) for a full local walkthrough.
+```bash
+# Health
+curl http://localhost:8787/__mpp/health
 
-If you want the optional landing page at `/`, uncomment the `assets` block in `wrangler.jsonc`.
+# Dynamic prices
+curl http://localhost:8787/__mpp/api/prices
+
+# Trigger 402 with surge price
+curl -X POST http://localhost:8787/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"hello"}]}'
+
+# Flood and watch prices surge
+for i in {1..50}; do
+  curl -s -o /dev/null -X POST http://localhost:8787/api/chat \
+    -H "Content-Type: application/json" \
+    -d '{"messages":[{"role":"user","content":"x"}]}'
+done
+curl http://localhost:8787/__mpp/api/prices
+
+# Full MPP payment flow (needs funded Tempo wallet)
+PRIVATE_KEY=0x... npm run test:client
+```
+
+## Deploy
+
+```bash
+npx wrangler login
+npx wrangler deploy
+npx wrangler secret put MPP_SECRET_KEY
+npx wrangler secret put JWT_SECRET
+```
 
 ## Configuration
 
-The proxy is configured in `wrangler.jsonc`. The checked-in defaults keep routes disabled and use production-safe payment values until you swap in your own domain, wallet, and token.
+### wrangler.jsonc
 
-### Required vars
-
-| Variable             | Description                                |
-| -------------------- | ------------------------------------------ |
-| `PAY_TO`             | Recipient wallet address                   |
-| `PAYMENT_CURRENCY`   | Token address clients pay with             |
-| `TEMPO_TESTNET`      | `false` for production, `true` for testnet |
-| `PROTECTED_PATTERNS` | Paid paths and their amounts               |
-
-### Required secrets
-
-| Secret           | Description                                     |
-| ---------------- | ----------------------------------------------- |
-| `JWT_SECRET`     | Signs the auth cookie                           |
-| `MPP_SECRET_KEY` | Signs MPP challenges for stateless verification |
-
-### Optional secrets
-
-| Secret          | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `TEMPO_RPC_URL` | Authenticated Tempo RPC URL for server-side verification |
-
-Set secrets for production with:
-
-```bash
-npx wrangler secret put JWT_SECRET
-npx wrangler secret put MPP_SECRET_KEY
-```
-
-If your Tempo RPC requires authentication, also set `TEMPO_RPC_URL`.
-
-Use `TEMPO_RPC_URL` when Tempo RPC access requires authentication, for example:
-
-```text
-https://user:pass@rpc.mainnet.tempo.xyz/
-```
-
-Without this override, `mppx` falls back to the default Tempo RPC URLs for server-side verification.
-
-### Protected path config
+Protected routes with dynamic pricing are defined in `PROTECTED_PATTERNS`:
 
 ```jsonc
 "PROTECTED_PATTERNS": [
   {
-    "pattern": "/premium/*",
+    "pattern": "/api/chat",
     "amount": "0.01",
-    "description": "Access to premium content for 1 hour"
+    "description": "AI chat completion",
+    "pricing": {
+      "basePrice": "0.001",
+      "minPrice": "0.001",
+      "maxPrice": "0.10",
+      "windowSizeMs": 60000,
+      "surgeThreshold": 10,
+      "surgeMultiplierMax": 10
+    }
   }
 ]
 ```
 
-Bot Management filtering is still supported with `bot_score_threshold` and `except_detection_ids`.
+### Bindings
 
-The built-in paid test route at `/__mpp/protected` always exists, even if you change or remove `PROTECTED_PATTERNS`.
+| Binding | Type | Description |
+|---------|------|-------------|
+| `PRICING_ENGINE` | Durable Object | Per-route pricing state |
+| `AI` | Workers AI | LLM inference (Llama, Mistral, BGE) |
 
-## How Payment Works
+### Required vars
 
-1. Client requests a protected route.
-2. Proxy returns `402 Payment Required` with `WWW-Authenticate: Payment`.
-3. Client retries with `Authorization: Payment`.
-4. Proxy verifies the credential with `mppx`.
-5. Proxy forwards to the origin and adds `Payment-Receipt`.
-6. Proxy also issues an `auth_token` cookie valid for 1 hour.
+| Variable | Description |
+|----------|-------------|
+| `PAY_TO` | Recipient wallet address |
+| `PAYMENT_CURRENCY` | Token address (USDC) |
+| `TEMPO_TESTNET` | `true` for testnet |
+| `PROTECTED_PATTERNS` | Routes, amounts, and pricing config |
 
-That means MPP-native clients get standards-compliant receipts, while browsers and agents can reuse the cookie for repeated access during the valid period.
+### Required secrets
 
-## Proxy Modes
+| Secret | Description |
+|--------|-------------|
+| `JWT_SECRET` | Signs the 1-hour auth cookie |
+| `MPP_SECRET_KEY` | Signs MPP payment challenges |
 
-### DNS-based origin
+## Project structure
 
-Leave `ORIGIN_URL` unset and route traffic to an origin already defined in Cloudflare DNS.
-
-### External origin
-
-Set:
-
-```jsonc
-"ORIGIN_URL": "https://my-backend.example.com"
+```
+src/
+├── index.ts              # Hono app, routing, AI handlers, CORS
+├── auth.ts               # MPP payment middleware + surge pricing integration
+├── env.ts                # Environment and type definitions
+├── jwt.ts                # JWT utilities
+├── pricing/
+│   ├── config.ts         # Tier config and defaults
+│   ├── pricing-engine.ts # Core: sliding window, tiers, EMA smoothing
+│   └── engine.ts         # Durable Object wrapper + WebSocket broadcast
+├── api/
+│   └── routes.ts         # /__mpp/api/* pricing endpoints
+└── bot-management/       # Optional Bot Management filtering (from upstream)
+public/                   # Simulator dashboard (built Svelte app)
+wrangler.jsonc            # Worker config
+test-client.ts            # End-to-end MPP payment test
 ```
 
-### Service binding
+## How pricing works
 
-If the origin is another Worker in your account:
+1. Each request to a protected route is recorded in the route's Durable Object
+2. A sliding window (60s, 1s buckets) counts recent demand
+3. Demand maps to a 5-tier piecewise curve with linear interpolation
+4. EMA smoothing prevents price jitter from short bursts
+5. The surged price is used in the 402 payment challenge
+6. After payment, Workers AI runs the model and returns the response
 
-```jsonc
-"services": [
-  { "binding": "ORIGIN_SERVICE", "service": "my-origin-worker" }
-]
-```
+| Tier | Threshold | Multiplier |
+|------|----------:|----------:|
+| Base | 0 | 1.0x |
+| Normal | 50 | 1.5x |
+| Elevated | 200 | 2.5x |
+| High | 1,000 | 5.0x |
+| Surge | 5,000 | 10.0x |
 
-## Local Testing
+## Upstream
 
-### Health endpoint
+This is a fork of [cloudflare/mpp-proxy](https://github.com/cloudflare/mpp-proxy). All upstream features (DNS/external/service-binding proxy modes, bot management, cookie auth) are preserved.
 
-```bash
-curl http://localhost:8787/__mpp/health
-```
-
-### Built-in protected route
-
-```bash
-curl -i http://localhost:8787/__mpp/protected
-```
-
-You should get `402 Payment Required` and a `WWW-Authenticate: Payment` header.
-
-### CLI payment test
-
-```bash
-npx mppx account create
-npx mppx http://localhost:8787/__mpp/protected
-```
-
-### Scripted client test
-
-```bash
-PRIVATE_KEY=0x... npm run test:client
-```
-
-See `TESTING.md` for details.
-
-## Project Structure
-
-```text
-src/index.ts              Main proxy entrypoint
-src/auth.ts               Cookie + MPP payment middleware
-src/jwt.ts                JWT utilities
-src/bot-management/       Optional Bot Management filtering
-public/index.html         Optional landing page
-test-client.ts            End-to-end MPP client test
-wrangler.jsonc            Worker configuration
-```
-
-## Notes
-
-- This project uses the Tempo payment method through `mppx`.
-- `Payment-Receipt` is returned on successful paid requests.
-- Cookies are `HttpOnly`, `Secure`, and `SameSite=Strict`.
-- Uncomment `assets` in `wrangler.jsonc` only if you want the optional landing page served at `/`.
+Built by [trionlabs](https://trionlabs.dev) for the [Tempo Hackathon](https://hackathon.tempo.xyz/).
