@@ -6,31 +6,41 @@
  */
 
 import type { JWTPayload } from "./jwt";
+import type { PricingEngineDO } from "./pricing/engine";
+
+export interface PricingPatternConfig {
+  basePrice: string;
+  minPrice: string;
+  maxPrice: string;
+  windowSizeMs: number;
+  surgeThreshold: number;
+  surgeMultiplierMax: number;
+}
+
+export interface ProtectedPattern {
+  pattern: string;
+  amount: string;
+  description: string;
+  pricing?: PricingPatternConfig;
+  bot_score_threshold?: number;
+  except_detection_ids?: number[];
+}
 
 export interface Env extends Omit<
   CloudflareBindings,
-  "PAY_TO" | "PAYMENT_CURRENCY" | "TEMPO_TESTNET"
+  "PAY_TO" | "PAYMENT_CURRENCY" | "TEMPO_TESTNET" | "PROTECTED_PATTERNS"
 > {
-  /** Secret for signing JWT tokens - set via .dev.vars locally or `wrangler secret put` in production */
   JWT_SECRET: string;
-  /** Secret for signing MPP payment challenges */
   MPP_SECRET_KEY: string;
-  /** Wallet that receives Tempo payments */
   PAY_TO: `0x${string}`;
-  /** Token address the proxy charges in */
   PAYMENT_CURRENCY: `0x${string}`;
-  /** Whether the demo should use Tempo testnet defaults */
   TEMPO_TESTNET: boolean;
-  /** Optional authenticated Tempo RPC URL for server-side verification and broadcast */
   TEMPO_RPC_URL?: string;
-  /**
-   * Optional origin URL for External Origin mode.
-   * When set, requests are rewritten to this URL instead of using DNS-based routing.
-   * Use this to proxy to another Worker on a Custom Domain or any external service.
-   */
   ORIGIN_URL?: string;
-  /** Optional: Service Binding to origin Worker */
   ORIGIN_SERVICE?: Fetcher;
+  PRICING_ENGINE: DurableObjectNamespace<PricingEngineDO>;
+  AI: Ai;
+  PROTECTED_PATTERNS: ProtectedPattern[];
 }
 
 /** Full app context type for Hono */

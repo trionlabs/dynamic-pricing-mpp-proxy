@@ -56,30 +56,49 @@ export function requirePaymentOrCookie(paymentMw: MiddlewareHandler) {
  * Configuration for a protected route that requires payment
  */
 export interface ProtectedRouteConfig {
-  /** Route pattern to protect (e.g., "/premium", "/api/paid/*") */
   pattern: string;
-  /** Payment amount in token units (e.g. "0.01") */
   amount: string;
-  /** Human-readable description of what the payment is for */
   description: string;
-  /**
-   * Bot Management Filtering (optional)
-   * Requires Bot Management for Enterprise. See src/bot-management/ for details.
-   */
+  pricing?: {
+    basePrice: string;
+    minPrice: string;
+    maxPrice: string;
+    windowSizeMs: number;
+    surgeThreshold: number;
+    surgeMultiplierMax: number;
+  };
   bot_score_threshold?: number;
   except_detection_ids?: number[];
 }
 
 /**
- * Creates middleware for a protected route that requires payment OR valid cookie
- * This dynamically creates payment middleware at request time to access environment variables
- * The route path is automatically determined from the request context
- *
- * @param config - Payment configuration
- * @returns Middleware that enforces payment or cookie authentication
+ * Creates middleware for a protected route that requires payment OR valid cookie.
+ * If the route has dynamic pricing config, records demand in the PricingEngine DO
+ * and uses the surged price for the payment challenge.
  */
 export function createProtectedRoute(config: ProtectedRouteConfig) {
   return async (c: Context<AppContext>, next: Next) => {
+    let amount = config.amount;
+
+    // Dynamic pricing: record demand and get surged price
+    if (config.pricing && c.env.PRICING_ENGINE) {
+      const doId = c.env.PRICING_ENGINE.idFromName(config.pattern);
+      const stub = c.env.PRICING_ENGINE.get(doId);
+      // Pass pricing config for lazy DO initialization
+      const engineCfg = {
+        basePrice: parseFloat(config.pricing.basePrice),
+        windowSize: Math.round(config.pricing.windowSizeMs / 1000),
+      };
+      const cfgQ = encodeURIComponent(JSON.stringify(engineCfg));
+      const res = await stub.fetch(new Request(`https://do/record?config=${cfgQ}`));
+      const status = (await res.json()) as { smoothedPrice: number };
+      // Use the surged price, clamped to min/max
+      const min = parseFloat(config.pricing.minPrice);
+      const max = parseFloat(config.pricing.maxPrice);
+      const surged = Math.max(min, Math.min(max, status.smoothedPrice));
+      amount = surged.toFixed(6);
+    }
+
     const mppx = Mppx.create({
       methods: [
         tempo({
@@ -98,11 +117,10 @@ export function createProtectedRoute(config: ProtectedRouteConfig) {
     });
 
     const paymentMw = payment(mppx.charge, {
-      amount: config.amount,
+      amount,
       description: config.description,
     });
 
-    // Apply the combined auth/payment middleware
     return await requirePaymentOrCookie(paymentMw)(c, next);
   };
 }

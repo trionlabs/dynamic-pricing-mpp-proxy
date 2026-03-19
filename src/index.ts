@@ -1,16 +1,16 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { setCookie } from "hono/cookie";
 import { createProtectedRoute, type ProtectedRouteConfig } from "./auth";
 import { generateJWT } from "./jwt";
 import { hasBotManagementException } from "./bot-management";
+import { pricingApi } from "./api/routes";
 import type { AppContext, Env } from "./env";
+
+export { PricingEngineDO } from "./pricing/engine";
 
 const app = new Hono<AppContext>();
 
-/**
- * Built-in protected paths that always require payment
- * These are used for testing and don't need to be configured
- */
 const BUILTIN_PROTECTED_PATHS: ProtectedRouteConfig[] = [
   {
     pattern: "/__mpp/protected",
@@ -19,11 +19,10 @@ const BUILTIN_PROTECTED_PATHS: ProtectedRouteConfig[] = [
   },
 ];
 
-/**
- * Built-in public paths that don't require payment
- * These are used for testing and don't need to be configured
- */
 const BUILT_IN_PUBLIC_PATHS = ["/__mpp/health", "/__mpp/config"];
+
+/** AI endpoint patterns served directly by the Worker (not proxied to origin) */
+const AI_ENDPOINTS = ["/api/chat", "/api/embeddings"];
 
 /**
  * Proxy a request to the origin server.
@@ -122,19 +121,31 @@ function findProtectedRouteConfig(
   );
 }
 
-/**
- * Main proxy handler - intercepts protected routes, proxies everything else
- * Note: This middleware runs for all routes, but route handlers below can still
- * take precedence by being registered after this middleware
- */
+// CORS for pricing API and AI endpoints
+app.use("/__mpp/api/*", cors());
+
+// Mount pricing API
+app.route("/__mpp/api", pricingApi);
+
+// WebSocket upgrade for live pricing stream
+app.get("/__mpp/api/ws/:pattern", async (c) => {
+  const upgradeHeader = c.req.header("Upgrade");
+  if (upgradeHeader !== "websocket") {
+    return c.text("Expected WebSocket", 426);
+  }
+  const pattern = "/" + c.req.param("pattern");
+  const doId = c.env.PRICING_ENGINE.idFromName(pattern);
+  const stub = c.env.PRICING_ENGINE.get(doId);
+  return stub.fetch(new Request("https://do/ws", { headers: c.req.raw.headers }));
+});
+
 app.use("*", async (c, next) => {
   const path = c.req.path;
   const protectedPatterns = c.env.PROTECTED_PATTERNS || [];
 
-  // Special handling for built-in endpoints
-  // These are handled by route handlers below, not proxied
-  if (BUILT_IN_PUBLIC_PATHS.includes(path)) {
-    return next(); // Let the route handler below handle it
+  // Public endpoints handled by route handlers below
+  if (BUILT_IN_PUBLIC_PATHS.includes(path) || path.startsWith("/__mpp/api/")) {
+    return next();
   }
 
   // Check if this path is protected (including /__mpp/protected)
@@ -194,8 +205,6 @@ app.use("*", async (c, next) => {
     }
 
     if (path === "/__mpp/protected") {
-      // Built-in protected endpoint response is created inside the payment
-      // callback so the receipt header gets attached to the JSON body.
       if (jwtToken) {
         setCookie(c, "auth_token", jwtToken, {
           httpOnly: true,
@@ -207,6 +216,34 @@ app.use("*", async (c, next) => {
       }
 
       return c.res;
+    }
+
+    // AI endpoints: serve directly via Workers AI binding
+    if (AI_ENDPOINTS.includes(path) && c.env.AI) {
+      const originResponse = await handleAIEndpoint(path, c.req.raw, c.env);
+      if (jwtToken) {
+        setCookie(c, "auth_token", jwtToken, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "Strict",
+          maxAge: 3600,
+          path: "/",
+        });
+        const newResponse = new Response(originResponse.body, {
+          status: originResponse.status,
+          headers: new Headers(originResponse.headers),
+        });
+        const setCookieHeaders = c.res.headers.getSetCookie();
+        for (const cookie of setCookieHeaders) {
+          newResponse.headers.append("Set-Cookie", cookie);
+        }
+        const paymentReceipt = c.res.headers.get("Payment-Receipt");
+        if (paymentReceipt) {
+          newResponse.headers.set("Payment-Receipt", paymentReceipt);
+        }
+        return newResponse;
+      }
+      return originResponse;
     }
 
     // Proxy the authenticated request to origin
@@ -301,5 +338,30 @@ app.get("/__mpp/config", (c) => {
     botManagementFiltering: botFilteringEnabled,
   });
 });
+
+/** Handle AI endpoints directly via Workers AI binding */
+async function handleAIEndpoint(path: string, request: Request, env: Env): Promise<Response> {
+  try {
+    const body = await request.json() as Record<string, unknown>;
+
+    if (path === "/api/chat") {
+      const messages = body.messages as Array<{ role: string; content: string }>;
+      const model = (body.model as string) || "@cf/meta/llama-3.1-8b-instruct";
+      const result = await env.AI.run(model as keyof AiModels, { messages } as never);
+      return Response.json(result);
+    }
+
+    if (path === "/api/embeddings") {
+      const text = body.text as string | string[];
+      const model = (body.model as string) || "@cf/baai/bge-base-en-v1.5";
+      const result = await env.AI.run(model as keyof AiModels, { text: Array.isArray(text) ? text : [text] } as never);
+      return Response.json(result);
+    }
+
+    return new Response("Not found", { status: 404 });
+  } catch (err) {
+    return Response.json({ error: String(err) }, { status: 500 });
+  }
+}
 
 export default app;
