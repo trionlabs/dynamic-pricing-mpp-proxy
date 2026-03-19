@@ -7,8 +7,7 @@
     "enabled": true
   },
   "assets": {
-    "directory": "public",
-    "not_found_handling": "single-page-application"
+    "directory": "public"
   },
   "durable_objects": {
     "bindings": [
