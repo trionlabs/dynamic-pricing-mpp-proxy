@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MPP Payment-Gated Proxy</title>
+    <title>MPP Dynamic Pricing - AI Agent Gateway</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -22,28 +22,24 @@
         --muted: #737373;
         --line: rgba(51, 51, 51, 0.12);
         --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        --green: #1a7f37;
+        --green-bg: #edf9f0;
+        --red: #cf222e;
+        --red-bg: #ffebe9;
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
 
       body {
         margin: 0;
         min-height: 100vh;
-        font-family:
-          "Inter",
-          system-ui,
-          -apple-system,
-          sans-serif;
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
         color: var(--ink);
         background: var(--bg);
         line-height: 1.6;
       }
 
-      a {
-        color: inherit;
-      }
+      a { color: inherit; }
 
       .shell {
         max-width: 1180px;
@@ -59,7 +55,6 @@
         overflow: hidden;
       }
 
-      /* Hero */
       .hero {
         display: grid;
         grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
@@ -67,9 +62,7 @@
         padding: 48px 40px;
       }
 
-      .badge,
-      .code,
-      .mini-label {
+      .badge, .code, .mini-label, .price-val {
         font-family: "IBM Plex Mono", monospace;
       }
 
@@ -97,16 +90,14 @@
 
       h1 {
         margin: 24px 0 18px;
-        font-size: clamp(2.6rem, 6.5vw, 5rem);
+        font-size: clamp(2.4rem, 6vw, 4.5rem);
         font-weight: 700;
         line-height: 1.08;
         letter-spacing: -0.04em;
         color: var(--ink);
       }
 
-      h1 span {
-        color: var(--brand);
-      }
+      h1 span { color: var(--brand); }
 
       .lede {
         max-width: 46rem;
@@ -116,7 +107,6 @@
         color: var(--muted);
       }
 
-      /* Buttons */
       .actions {
         display: flex;
         flex-wrap: wrap;
@@ -135,15 +125,10 @@
         font-weight: 600;
         font-size: 0.95rem;
         border: 1px solid transparent;
-        transition:
-          transform 160ms ease,
-          background-color 160ms ease,
-          box-shadow 160ms ease;
+        transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
       }
 
-      .btn:hover {
-        transform: translateY(-1px);
-      }
+      .btn:hover { transform: translateY(-1px); }
 
       .btn-primary {
         background: var(--brand);
@@ -161,55 +146,118 @@
         border-color: var(--brand);
       }
 
-      .btn-secondary:hover {
-        background: var(--brand-soft);
-      }
+      .btn-secondary:hover { background: var(--brand-soft); }
+      .btn-secondary::after { content: " \2192"; margin-left: 6px; }
 
-      .btn-secondary::after {
-        content: " \2192";
-        margin-left: 6px;
-      }
-
-      /* Hero card */
-      .hero-card {
+      /* Live pricing card */
+      .pricing-card {
         display: grid;
-        gap: 14px;
-        align-content: center;
+        gap: 16px;
+        align-content: start;
         padding: 24px;
         border: 1px solid var(--line);
         border-radius: 12px;
         background: var(--brand-wash);
       }
 
-      .hero-card img {
-        width: 44px;
-        height: 44px;
-      }
-
-      .mini-label {
+      .pricing-card .card-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         font-size: 12px;
         color: var(--muted);
         text-transform: uppercase;
         letter-spacing: 0.06em;
+        font-family: "IBM Plex Mono", monospace;
       }
 
-      .hero-card p {
-        margin: 0;
+      .pricing-card .card-title .live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+
+      .price-row {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+
+      .price-val {
+        font-size: 2.4rem;
+        font-weight: 700;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+      }
+
+      .price-meta {
+        font-size: 0.85rem;
         color: var(--muted);
-        line-height: 1.6;
       }
 
-      .code {
-        padding: 14px 16px;
-        border-radius: 10px;
-        border: 1px solid var(--line);
-        background: #2b2b2b;
-        color: #e8e8e8;
+      .tier-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      .tier-badge.base { background: var(--green-bg); color: var(--green); }
+      .tier-badge.normal { background: #fffde7; color: #9a7b2f; }
+      .tier-badge.elevated { background: #fff3e0; color: #c65d00; }
+      .tier-badge.high { background: var(--brand-soft); color: var(--brand-dark); }
+      .tier-badge.surge { background: var(--red-bg); color: var(--red); }
+
+      .demand-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--line);
+        overflow: hidden;
+      }
+
+      .demand-fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--brand);
+        transition: width 0.5s ease;
+      }
+
+      .route-price {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .route-price:last-child { border-bottom: 0; }
+
+      .route-name {
+        font-family: "IBM Plex Mono", monospace;
         font-size: 13px;
-        overflow: auto;
+        font-weight: 500;
       }
 
-      /* 3-column info grid */
+      .route-amount {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--brand);
+      }
+
+      /* Info grid */
       .grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -223,31 +271,23 @@
         border-right: 1px solid var(--line);
       }
 
-      .panel:last-child {
-        border-right: 0;
-      }
+      .panel:last-child { border-right: 0; }
 
-      .panel h2,
-      .routes h2 {
+      .panel h2, .routes h2 {
         margin: 0 0 12px;
         font-size: 1.1rem;
         font-weight: 600;
         color: var(--ink);
       }
 
-      .panel p,
-      .endpoint p,
-      footer p {
+      .panel p, .endpoint p, footer p {
         margin: 0;
         color: var(--muted);
         line-height: 1.6;
       }
 
-      /* Request flow steps */
-      .steps {
-        display: grid;
-        gap: 14px;
-      }
+      /* Steps */
+      .steps { display: grid; gap: 14px; }
 
       .step {
         display: grid;
@@ -276,7 +316,7 @@
         font-weight: 500;
       }
 
-      /* Routes / endpoints section */
+      /* Endpoints */
       .routes {
         padding: 28px 24px;
         border-top: 1px solid var(--line);
@@ -307,17 +347,17 @@
         font-weight: 500;
       }
 
-      .public {
-        background: #edf9f0;
-        color: #1a7f37;
+      .public { background: var(--green-bg); color: var(--green); }
+      .protected { background: var(--brand-soft); color: var(--brand-dark); }
+
+      .mini-label {
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-family: "IBM Plex Mono", monospace;
       }
 
-      .protected {
-        background: var(--brand-soft);
-        color: var(--brand-dark);
-      }
-
-      /* Footer */
       footer {
         padding: 24px;
         border-top: 1px solid var(--line);
@@ -325,9 +365,7 @@
         border-radius: 0 0 16px 16px;
       }
 
-      footer p {
-        color: rgba(255, 255, 255, 0.9) !important;
-      }
+      footer p { color: rgba(255, 255, 255, 0.9) !important; }
 
       footer a {
         color: #ffffff;
@@ -337,19 +375,15 @@
         text-underline-offset: 3px;
       }
 
-      footer a:hover {
-        text-decoration-color: #ffffff;
-      }
+      footer a:hover { text-decoration-color: #ffffff; }
 
-      /* Responsive */
       @media (max-width: 920px) {
         .hero {
           grid-template-columns: 1fr;
           padding: 32px 20px;
         }
 
-        .grid,
-        .endpoint-grid {
+        .grid, .endpoint-grid {
           grid-template-columns: 1fr;
         }
 
@@ -358,9 +392,7 @@
           border-bottom: 1px solid var(--line);
         }
 
-        .panel:last-child {
-          border-bottom: 0;
-        }
+        .panel:last-child { border-bottom: 0; }
       }
     </style>
   </head>
@@ -369,134 +401,128 @@
       <section class="frame">
         <div class="hero">
           <div>
-            <div class="badge">Machine Payments Protocol Demo</div>
+            <div class="badge">Tempo Hackathon</div>
             <h1>
-              Put an <span>MPP paywall</span><br />in front of any origin.
+              AI inference,<br /><span>surge-priced</span><br />by demand.
             </h1>
             <p class="lede">
-              This Cloudflare Worker turns protected routes into paid routes
-              using the MPP `Payment` authentication flow, then upgrades
-              successful buyers into short-lived cookie sessions for repeat
-              access.
+              Machines pay machines for intelligence. This Cloudflare Worker gates
+              access to AI models (Llama, Mistral) behind MPP payments with
+              dynamic surge pricing. More agents requesting completions?
+              The price climbs.
             </p>
             <div class="actions">
-              <a class="btn btn-primary" href="/__mpp/protected"
-                >Try paid route</a
-              >
-              <a class="btn btn-secondary" href="https://mpp.dev/overview"
-                >Read the docs</a
-              >
+              <a class="btn btn-primary" href="/api/chat" onclick="event.preventDefault(); testChat();">Try /api/chat</a>
+              <a class="btn btn-secondary" href="https://mpp.dev/overview">MPP Docs</a>
             </div>
           </div>
 
-          <aside class="hero-card">
-            <img src="/mpp-icon.svg" alt="MPP icon" />
-            <div class="mini-label">Built-in flow</div>
-            <div class="code">
-              GET /premium &rarr; 402 &rarr; Authorization: Payment &rarr;
-              Payment-Receipt
+          <aside class="pricing-card">
+            <div class="card-title">
+              <span class="live-dot"></span>
+              Live pricing
             </div>
-            <p>
-              The proxy uses `mppx` with the Tempo method by default, forwards
-              paid traffic to your origin, and issues an `auth_token` cookie
-              valid for one hour.
-            </p>
+            <div id="pricing-display">
+              <div style="color: var(--muted); font-size: 14px;">Loading...</div>
+            </div>
           </aside>
         </div>
 
         <div class="grid">
           <section class="panel">
-            <h2>What changes</h2>
+            <h2>Dynamic Surge Pricing</h2>
             <p>
-              The proxy speaks native MPP: `WWW-Authenticate: Payment`,
-              `Authorization: Payment`, and `Payment-Receipt` are first-class
-              protocol pieces.
+              A 5-tier pricing engine in a Durable Object tracks demand per route
+              with a sliding window and EMA smoothing. Prices rise
+              automatically under load.
             </p>
           </section>
 
           <section class="panel">
-            <h2>Why the cookie still exists</h2>
+            <h2>Workers AI Gateway</h2>
             <p>
-              MPP handles the payment exchange; the JWT cookie makes repeat
-              browser and agent requests cheap during the 1-hour access window.
+              No external API keys needed. The Worker runs AI inference
+              directly via the Workers AI binding &mdash; Cloudflare's
+              built-in LLM platform.
             </p>
           </section>
 
           <section class="panel">
-            <h2>Default method</h2>
+            <h2>MPP + Tempo</h2>
             <p>
-              This demo is wired to the Tempo method with a configurable token
-              address and recipient wallet in `wrangler.jsonc`.
+              HTTP 402 challenges with <code>WWW-Authenticate: Payment</code>.
+              AI agents with wallets pay per-request via Tempo.
+              JWT cookies provide 1-hour repeat access.
             </p>
           </section>
         </div>
 
         <section class="routes">
-          <h2>Request flow</h2>
+          <h2>How it works</h2>
           <div class="steps">
             <div class="step">
               <div class="step-index">01</div>
               <div>
-                <strong>Client hits a protected route</strong>
-                <p>
-                  The Worker checks your route patterns before touching the
-                  origin.
-                </p>
+                <strong>Agent requests AI completion</strong>
+                <p>POST /api/chat with messages. Worker returns 402 with payment challenge and current surge price.</p>
               </div>
             </div>
             <div class="step">
               <div class="step-index">02</div>
               <div>
-                <strong>Worker returns an MPP challenge</strong>
-                <p>
-                  A `402 Payment Required` response includes `WWW-Authenticate:
-                  Payment`.
-                </p>
+                <strong>Agent pays via MPP</strong>
+                <p>The agent's wallet signs a Tempo payment for the dynamic price. Retries with <code>Authorization: Payment</code>.</p>
               </div>
             </div>
             <div class="step">
               <div class="step-index">03</div>
               <div>
-                <strong>Client retries with proof of payment</strong>
-                <p>The next request carries `Authorization: Payment`.</p>
+                <strong>Worker runs inference &amp; returns receipt</strong>
+                <p>Workers AI runs the model, response includes <code>Payment-Receipt</code> and a JWT cookie for repeat access.</p>
               </div>
             </div>
             <div class="step">
               <div class="step-index">04</div>
               <div>
-                <strong>Origin response comes back with a receipt</strong>
-                <p>
-                  The proxy forwards the request, adds `Payment-Receipt`, and
-                  sets a JWT cookie.
-                </p>
+                <strong>Price adjusts with demand</strong>
+                <p>Each request is recorded. More agents = higher price. The Durable Object smooths pricing to prevent whiplash.</p>
               </div>
             </div>
           </div>
         </section>
 
         <section class="routes">
-          <h2>Built-in endpoints</h2>
+          <h2>Endpoints</h2>
           <div class="endpoint-grid">
             <article class="endpoint">
-              <div class="mini-label">GET /__mpp/health</div>
-              <p>Public health probe for deployment and smoke tests.</p>
-              <span class="status public">public</span>
-            </article>
-            <article class="endpoint">
-              <div class="mini-label">GET /__mpp/config</div>
-              <p>
-                Sanitized runtime config including token, wallet suffix, and
-                protected patterns.
-              </p>
-              <span class="status public">public</span>
-            </article>
-            <article class="endpoint">
-              <div class="mini-label">GET /__mpp/protected</div>
-              <p>
-                Built-in paid route for testing the MPP challenge, receipt, and
-                cookie flow.
-              </p>
+              <div class="mini-label">POST /api/chat</div>
+              <p>AI chat completion via Workers AI. Dynamic surge pricing.</p>
               <span class="status protected">payment required</span>
+            </article>
+            <article class="endpoint">
+              <div class="mini-label">POST /api/embeddings</div>
+              <p>Text embeddings via Workers AI. Separate pricing tier.</p>
+              <span class="status protected">payment required</span>
+            </article>
+            <article class="endpoint">
+              <div class="mini-label">GET /__mpp/api/prices</div>
+              <p>Live dynamic prices for all protected routes.</p>
+              <span class="status public">public</span>
+            </article>
+            <article class="endpoint">
+              <div class="mini-label">GET /__mpp/api/status</div>
+              <p>Full status: demand, tier, config per route.</p>
+              <span class="status public">public</span>
+            </article>
+            <article class="endpoint">
+              <div class="mini-label">GET /__mpp/health</div>
+              <p>Health check for deployment verification.</p>
+              <span class="status public">public</span>
+            </article>
+            <article class="endpoint">
+              <div class="mini-label">GET /__mpp/api/ws/:pattern</div>
+              <p>WebSocket for live pricing stream updates.</p>
+              <span class="status public">public</span>
             </article>
           </div>
         </section>
@@ -505,11 +531,78 @@
           <p>
             Built with
             <a href="https://workers.cloudflare.com">Cloudflare Workers</a>,
-            <a href="https://mpp.dev/sdk/typescript">mppx</a>, and the
-            <a href="https://mpp.dev/overview">Machine Payments Protocol</a>.
+            <a href="https://mpp.dev/sdk/typescript">mppx</a>,
+            <a href="https://developers.cloudflare.com/workers-ai/">Workers AI</a>, and the
+            <a href="https://mpp.dev/overview">Machine Payments Protocol</a>
+            for the <a href="https://hackathon.tempo.xyz/">Tempo Hackathon</a>.
           </p>
         </footer>
       </section>
     </main>
+
+    <script>
+      const TIER_CLASSES = ['base', 'normal', 'elevated', 'high', 'surge'];
+
+      async function fetchPrices() {
+        try {
+          const res = await fetch('/__mpp/api/prices');
+          const data = await res.json();
+          renderPricing(data.prices);
+        } catch (e) {
+          document.getElementById('pricing-display').innerHTML =
+            '<div style="color: var(--muted); font-size: 14px;">Failed to load prices</div>';
+        }
+      }
+
+      function renderPricing(prices) {
+        const el = document.getElementById('pricing-display');
+        const main = prices[0]; // /api/chat is the primary
+        const tierClass = TIER_CLASSES[main.tier.level] || 'base';
+        const demandPct = Math.min(100, (main.tier.demand / 5000) * 100);
+
+        let html = `
+          <div class="price-row">
+            <span class="price-val">${main.formatted}</span>
+            <span class="price-meta">per request</span>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span class="tier-badge ${tierClass}">${main.tier.name} (${main.tier.multiplier.toFixed(2)}x)</span>
+            <span class="price-meta">${main.tier.demand} req/min</span>
+          </div>
+          <div class="demand-bar">
+            <div class="demand-fill" style="width: ${Math.max(2, demandPct)}%"></div>
+          </div>
+        `;
+
+        // Show all routes
+        html += '<div style="margin-top: 12px;">';
+        for (const p of prices) {
+          html += `
+            <div class="route-price">
+              <span class="route-name">${p.pattern}</span>
+              <span class="route-amount">${p.formatted}</span>
+            </div>
+          `;
+        }
+        html += '</div>';
+
+        el.innerHTML = html;
+      }
+
+      async function testChat() {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: [{ role: 'user', content: 'hello' }] })
+        });
+        const text = await res.text();
+        alert(`Status: ${res.status}\n\n${text.substring(0, 500)}`);
+        fetchPrices(); // Refresh after request
+      }
+
+      // Initial load + poll every 3s
+      fetchPrices();
+      setInterval(fetchPrices, 3000);
+    </script>
   </body>
 </html>
